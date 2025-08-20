@@ -5,96 +5,166 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.chrome.options import Options
 
-def run_video_automation():
-    # URL and login PIN for the automation platform
-    platform_url = "https://indeedemo-fyc.watch.indee.tv/"
-    login_pin = "WVMVHWBS"
-    
-    # Path to ChromeDriver executable - update as per your system configuration
-    chrome_driver_path = r"C:\Users\pratham u.k\Desktop\Indee_task\chromedriver.exe"
 
-    # Setup Chrome WebDriver service
-    service = Service(chrome_driver_path)
-    driver = webdriver.Chrome(service=service)
-    
-    # Maximize the browser window for full visibility
-    driver.maximize_window()
+# This is used for disabling the gpu to avoid black screen issue during recording the demo video
+chrome_options = Options()
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--disable-software-rasterizer")
+chrome_options.add_argument("--disable-accelerated-2d-canvas")
+chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--start-maximized")
 
-    # Configure dynamic wait: wait up to 60 seconds for elements and conditions
-    wait = WebDriverWait(driver, 120)
 
-    # Increase page load and script timeouts to handle slower responses
-    driver.set_page_load_timeout(120)
-    driver.set_script_timeout(120)
+# Open the Chrome browser
+service = Service(r"C:\Users\pratham u.k\Desktop\Indee\chromedriver.exe")
+driver = webdriver.Chrome(service=service, options=chrome_options)
+wait = WebDriverWait(driver, 20)
 
+
+# Open the Website
+driver.get("https://indeedemo-fyc.watch.indee.tv")
+
+
+# Step 1. Sign in to the Platform by entering the PIN
+print("Signing in with PIN")
+pin_input = wait.until(EC.visibility_of_element_located((By.ID, "pin")))
+pin_input.send_keys("WVMVHWBS")
+pin_input.submit()
+
+
+# Step 2. Navigating to All Titles
+time.sleep(5)
+project_button = wait.until(EC.visibility_of_element_located(
+    (By.XPATH, "//button[@class='brand-card' and @aria-label='All Titles']")))
+project_button.click()
+
+
+# Step 2. Click Test automation project
+wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "indee-wds-title-card")))
+wait.until(EC.element_to_be_clickable(
+    (By.XPATH, "//div[contains(@title,'Test automation project')]"))).click()
+
+
+# Step 3. Playing the video
+play_button = wait.until(EC.element_to_be_clickable(
+    (By.CSS_SELECTOR, ".icon-width-gen.wds-cursor-pointer")))
+play_button.click()
+print("Clicked Play Button")
+
+
+# Step 3. Searching for the iframe containing the video
+time.sleep(7)  
+iframes = driver.find_elements(By.TAG_NAME, "iframe")
+print(f"----> Found {len(iframes)} iframe(s)")
+
+
+video_found = False
+for i, frame in enumerate(iframes):
+    driver.switch_to.default_content()
+    driver.switch_to.frame(frame)
     try:
-        # Open the login page of the platform
-        driver.get(platform_url)
-        print("Platform login page loaded successfully.")
-
-        # Wait for the PIN input box to be visible and enter the PIN
-        pin_input = wait.until(EC.visibility_of_element_located((By.NAME, "pin")))
-        pin_input.send_keys(login_pin)
-        pin_input.send_keys(Keys.RETURN)
-        print("PIN submitted, logging in...")
-
-        # Wait for the 'All Titles' button and click it to view titles
-        all_titles_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'All Titles')]")))
-        all_titles_button.click()
-        print("Navigated to 'All Titles' section.")
-
-        # Locate and open the 'Test automation project'
-        test_project_card = wait.until(EC.element_to_be_clickable((By.XPATH, "//div[contains(., 'Test automation project')]")))
-        test_project_card.click()
-        print("Opened 'Test automation project'.")
-
-        # Start video playback by clicking the Play button
-        play_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Play']")))
-        play_button.click()
-        print("Video playback started.")
-        # Let the video play for the required 10 seconds
-        time.sleep(10)
-
-        # Pause the video after playing
-        pause_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Pause']")))
-        pause_button.click()
-        print("Video paused at 10 seconds.")
-
-        # Resume the video using 'Continue Watching' button
-        continue_watching_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(.,'Continue Watching')]")))
-        continue_watching_button.click()
-        print("Resumed video playback using 'Continue Watching'.")
-        time.sleep(5)  # Brief playback to demonstrate resume
-
-        # Pause the video again before exiting
-        pause_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Pause']")))
-        pause_button.click()
-        print("Video paused again.")
-
-        # Click the Back button to exit the project screen
-        back_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@aria-label='Back']")))
-        back_button.click()
-        print("Exited the project screen.")
-
-        # Click the Logout button to sign out from the platform
-        logout_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Logout')]")))
-        logout_button.click()
-        print("Logged out successfully.")
-
+        video_present = driver.execute_script("return document.querySelector('video') != null;")
+        if video_present:
+            print(f"===> Switched to iframe #{i+1} containing video.")
+            video_found = True
+            break
     except Exception as e:
-        # Print any exception that occurs during the automation sequence
-        print(f"Automation encountered an error: {e}")
+        continue
 
-    finally:
-        # Short pause before closing browser to ensure all actions completed
-        time.sleep(2)
-        driver.quit()
-        print("Browser session ended, script completed.")
 
-if __name__ == "__main__":
-    run_video_automation()
+if not video_found:
+    print("----- Could not find video in any iframe. Exiting.-----")
+    driver.quit()
+    exit()
+
+
+# Step 3. video playing for 10secs
+time.sleep(10)
+
+
+# Pause the video
+driver.execute_script("""
+    const v = document.querySelector('video');
+    if (v && !v.paused) {
+        v.pause();
+        console.log("---> Paused by JS");
+    }
+""")
+print("---> Video paused")
+
+
+time.sleep(5)
+
+
+# Step 4. Resume video
+driver.execute_script("""
+    const v = document.querySelector('video');
+    if (v && v.paused) {
+        v.play();
+        console.log("---> Resumed by JS");
+    }
+""")
+print("===> Video resumed")
+
+
+time.sleep(10)
+
+
+# Pause the video
+driver.execute_script("""
+    const v = document.querySelector('video');
+    if (v && !v.paused) {
+        v.pause(); 
+        console.log("---> Paused by ");
+    }
+""")
+print("---> Video paused")
+
+
+time.sleep(5)   
+
+
+# Step 5. Go Back
+
+driver.back()
+time.sleep(5)
+driver.back()
+
+
+# Step 6. Search for SideBar and Finding the SignOut Button
+try:
+    sidebar = wait.until(EC.presence_of_element_located((By.ID, "SideBar")))
+    ActionChains(driver).move_to_element(sidebar).perform()
+    print("===> Hovered over sidebar to expand")
+    time.sleep(2) 
+except Exception as e:
+    print("!!!! Sidebar hover failed:", e)
+    driver.quit()
+    exit()
+
+
+# Click Signout Button
+try:
+    sign_out_btn = wait.until(EC.element_to_be_clickable((By.ID, "signOutSideBar")))
+    sign_out_btn.click()
+    print("====> Signout clicked successfully")
+except Exception as e:
+    print("----> Could not click Sign Out:", e)
+    driver.quit()
+    exit()
+
+
+# Wait for Sometime 
+time.sleep(5)
+
+
+# Closing the browser
+driver.quit()
+
